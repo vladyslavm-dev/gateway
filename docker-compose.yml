@@ -1,0 +1,30 @@
+services:
+  edge_caddy:
+    image: caddy:2-alpine
+    restart: always
+    environment:
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+      - GATEWAY_DOMAIN=${GATEWAY_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web_network
+
+  gateway_ui:
+    image: ${DOCKER_IMAGE_GATEWAY:-vladyslavmdev/gateway-ui:template}
+    restart: always
+    networks:
+      - web_network
+
+networks:
+  web_network:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:

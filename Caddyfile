@@ -1,0 +1,11 @@
+{
+	email {$LETSENCRYPT_EMAIL}
+}
+
+{$GATEWAY_DOMAIN} {
+	reverse_proxy gateway_ui:80
+}
+
+www.{$GATEWAY_DOMAIN} {
+	redir https://{$GATEWAY_DOMAIN}{uri} permanent
+}

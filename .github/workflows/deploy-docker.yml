@@ -1,0 +1,146 @@
+name: CI/CD - Docker Compose Production
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  test_and_coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.1"
+          cache: "npm"
+          cache-dependency-path: ./frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Unit Tests With Coverage
+        working-directory: ./frontend
+        run: npm run test:coverage
+
+      - name: Build Static Export
+        working-directory: ./frontend
+        env:
+          PLACEHOLDER_MODE: ${{ vars.PLACEHOLDER_MODE || 'true' }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://example.com' }}
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'name@example.com' }}
+          CONTACT_LINKEDIN_URL: ${{ vars.CONTACT_LINKEDIN_URL || 'https://linkedin.com/' }}
+          CONTACT_GITHUB_URL: ${{ vars.CONTACT_GITHUB_URL || 'https://github.com/' }}
+          LEGAL_FULL_NAME: ${{ secrets.LEGAL_FULL_NAME || 'Template Owner' }}
+          LEGAL_ADDRESS_LINE_1: ${{ secrets.LEGAL_ADDRESS_LINE_1 || 'Placeholder Address' }}
+          LEGAL_ADDRESS_LINE_2: ${{ secrets.LEGAL_ADDRESS_LINE_2 || 'Placeholder City' }}
+          LEGAL_ADDRESS_LINE_3: ${{ secrets.LEGAL_ADDRESS_LINE_3 || '' }}
+          LEGAL_COUNTRY: ${{ secrets.LEGAL_COUNTRY || 'Placeholder Country' }}
+          LEGAL_EMAIL: ${{ secrets.LEGAL_EMAIL || 'name@example.com' }}
+          LEGAL_HOSTING_PROVIDER: ${{ secrets.LEGAL_HOSTING_PROVIDER || 'Hosting Provider' }}
+          LEGAL_PROCESSING_LOCATION: ${{ secrets.LEGAL_PROCESSING_LOCATION || 'EU/EEA' }}
+        run: npm run build
+
+      - name: Start Static Preview
+        working-directory: ./frontend
+        run: |
+          npm run preview:static > /tmp/gateway-preview.log 2>&1 &
+          npx wait-on http://127.0.0.1:3200
+
+      - name: End-to-End Tests
+        working-directory: ./frontend
+        run: npm run test:e2e
+
+      - name: Upload Frontend Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: codecov-frontend
+
+      - name: Upload Playwright Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          if-no-files-found: ignore
+
+  build-and-push:
+    needs: test_and_coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Gateway Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            PLACEHOLDER_MODE=${{ vars.PLACEHOLDER_MODE || 'true' }}
+            SITE_URL=${{ vars.SITE_URL || 'https://example.com' }}
+            CONTACT_EMAIL=${{ vars.CONTACT_EMAIL || 'name@example.com' }}
+            CONTACT_LINKEDIN_URL=${{ vars.CONTACT_LINKEDIN_URL || 'https://linkedin.com/' }}
+            CONTACT_GITHUB_URL=${{ vars.CONTACT_GITHUB_URL || 'https://github.com/' }}
+            LEGAL_FULL_NAME=${{ secrets.LEGAL_FULL_NAME || 'Template Owner' }}
+            LEGAL_ADDRESS_LINE_1=${{ secrets.LEGAL_ADDRESS_LINE_1 || 'Placeholder Address' }}
+            LEGAL_ADDRESS_LINE_2=${{ secrets.LEGAL_ADDRESS_LINE_2 || 'Placeholder City' }}
+            LEGAL_ADDRESS_LINE_3=${{ secrets.LEGAL_ADDRESS_LINE_3 || '' }}
+            LEGAL_COUNTRY=${{ secrets.LEGAL_COUNTRY || 'Placeholder Country' }}
+            LEGAL_EMAIL=${{ secrets.LEGAL_EMAIL || 'name@example.com' }}
+            LEGAL_HOSTING_PROVIDER=${{ secrets.LEGAL_HOSTING_PROVIDER || 'Hosting Provider' }}
+            LEGAL_PROCESSING_LOCATION=${{ secrets.LEGAL_PROCESSING_LOCATION || 'EU/EEA' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/gateway-ui:template
+
+  deploy-to-server:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Copy Docker Compose To Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "docker-compose.yml,Caddyfile"
+          target: "~/projects/gateway/"
+
+      - name: Deploy On Server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ~/projects/gateway
+            touch .env
+            if grep -q "^DOCKER_IMAGE_GATEWAY=" .env; then
+              sed -i "s#^DOCKER_IMAGE_GATEWAY=.*#DOCKER_IMAGE_GATEWAY=${{ secrets.DOCKER_USERNAME }}/gateway-ui:template#" .env
+            else
+              printf "\nDOCKER_IMAGE_GATEWAY=${{ secrets.DOCKER_USERNAME }}/gateway-ui:template\n" >> .env
+            fi
+            sudo docker compose pull gateway_ui
+            sudo docker compose up -d --force-recreate edge_caddy gateway_ui --remove-orphans
+            sudo docker exec gateway-edge_caddy-1 caddy reload --config /etc/caddy/Caddyfile
+            sudo docker image prune -f

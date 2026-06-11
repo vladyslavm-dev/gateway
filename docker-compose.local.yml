@@ -1,0 +1,22 @@
+services:
+  gateway_ui_local:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      args:
+        PLACEHOLDER_MODE: ${PLACEHOLDER_MODE:-true}
+        SITE_URL: ${SITE_URL:-https://example.com}
+        CONTACT_EMAIL: ${CONTACT_EMAIL:-name@example.com}
+        CONTACT_LINKEDIN_URL: ${CONTACT_LINKEDIN_URL:-https://linkedin.com/}
+        CONTACT_GITHUB_URL: ${CONTACT_GITHUB_URL:-https://github.com/}
+        LEGAL_FULL_NAME: ${LEGAL_FULL_NAME:-Your Legal Name}
+        LEGAL_ADDRESS_LINE_1: ${LEGAL_ADDRESS_LINE_1:-Street 1}
+        LEGAL_ADDRESS_LINE_2: ${LEGAL_ADDRESS_LINE_2:-12345 City}
+        LEGAL_ADDRESS_LINE_3: ${LEGAL_ADDRESS_LINE_3:-}
+        LEGAL_COUNTRY: ${LEGAL_COUNTRY:-Country}
+        LEGAL_EMAIL: ${LEGAL_EMAIL:-name@example.com}
+        LEGAL_HOSTING_PROVIDER: ${LEGAL_HOSTING_PROVIDER:-Hosting Provider}
+        LEGAL_PROCESSING_LOCATION: ${LEGAL_PROCESSING_LOCATION:-EU/EEA}
+    ports:
+      - "3200:80"
+    restart: unless-stopped

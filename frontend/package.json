@@ -1,0 +1,57 @@
+{
+  "name": "gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.6.2",
+  "engines": {
+    "node": "24.14.1"
+  },
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "lint": "eslint src e2e scripts next.config.ts eslint.config.mjs vitest.config.ts vitest.setup.ts playwright.config.ts postcss.config.mjs",
+    "test": "cross-env NODE_OPTIONS=--experimental-require-module vitest run",
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-require-module vitest run --coverage",
+    "test:e2e": "playwright test",
+    "preview:static": "node scripts/preview-static.mjs"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.6",
+    "@fontsource/ibm-plex-sans": "^5.2.6",
+    "@gsap/react": "2.1.2",
+    "@react-three/drei": "10.7.5",
+    "@react-three/fiber": "9.3.0",
+    "d3-force": "^3.0.0",
+    "gsap": "3.13.0",
+    "next": "16.1.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "server-only": "^0.0.1",
+    "sonner": "^2.0.7",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.58.2",
+    "@tailwindcss/postcss": "4.1.12",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/d3-force": "^3.0.10",
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.1.14",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@vitest/coverage-v8": "^4.0.3",
+    "cross-env": "^10.1.0",
+    "eslint": "^9.37.0",
+    "eslint-config-next": "16.1.0",
+    "jsdom": "^27.0.0",
+    "sharp": "^0.34.5",
+    "tailwindcss": "4.1.12",
+    "typescript": "5.8.3",
+    "vitest": "^4.0.3",
+    "wait-on": "^8.0.3"
+  }
+}
